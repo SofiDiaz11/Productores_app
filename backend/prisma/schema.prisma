@@ -1,0 +1,265 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USUARIOS Y AUTENTICACIÓN
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  role          UserRole @default(PRODUCER)
+  isVerified    Boolean  @default(false)
+  verifyToken   String?
+  resetToken    String?
+  resetExpires  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Relación con empresa
+  company       Company?
+  
+  @@map("users")
+}
+
+enum UserRole {
+  PRODUCER
+  ADMIN
+  SUPER_ADMIN
+}
+
+// ============================================
+// UBICACIONES - ESTADOS Y CIUDADES DE MÉXICO
+// ============================================
+
+model State {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  code        String      @unique
+  isActive    Boolean     @default(true)
+  order       Int         @default(0)
+  
+  // Relaciones
+  cities      City[]
+  companies   Company[]
+  
+  @@map("states")
+}
+
+model City {
+  id          String      @id @default(cuid())
+  stateId     String
+  name        String
+  isActive    Boolean     @default(true)
+  order       Int         @default(0)
+  
+  // Relaciones
+  state       State       @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  companies   Company[]
+  
+  @@unique([stateId, name])
+  @@map("cities")
+}
+
+// ============================================
+// CATEGORÍAS Y SUBCATEGORÍAS
+// ============================================
+
+model Category {
+  id            String      @id @default(cuid())
+  name          String      @unique
+  slug          String      @unique
+  description   String?
+  icon          String?
+  isActive      Boolean     @default(true)
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  
+  // Relaciones
+  subcategories Subcategory[]
+  companies     CompanyCategory[]
+  
+  @@map("categories")
+}
+
+model Subcategory {
+  id            String      @id @default(cuid())
+  categoryId    String
+  name          String
+  slug          String      @unique
+  description   String?
+  isActive      Boolean     @default(true)
+  order         Int         @default(0)
+  createdAt     DateTime    @default(now())
+  
+  // Relaciones
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  companies     CompanyCategory[]
+  
+  @@map("subcategories")
+}
+
+// ============================================
+// ETIQUETAS
+// ============================================
+
+model Tag {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  slug        String      @unique
+  description String?
+  color       String?
+  icon        String?
+  category    TagCategory
+  isActive    Boolean     @default(true)
+  order       Int         @default(0)
+  createdAt   DateTime    @default(now())
+  
+  // Relaciones
+  companies   CompanyTag[]
+  
+  @@map("tags")
+}
+
+enum TagCategory {
+  SUSTAINABILITY
+  PRODUCTION
+  COMMERCIAL
+}
+
+// ============================================
+// EMPRESAS/PRODUCTORES (VERSIÓN BÁSICA)
+// ============================================
+
+model Company {
+  id                String        @id @default(cuid())
+  userId            String        @unique
+  name              String
+  slug              String        @unique
+  logo              String?
+  description       String?
+  foundingYear      Int?
+  companySize       CompanySize
+  website           String?
+  isActive          Boolean       @default(true)
+  isVerified        Boolean       @default(false)
+  verifiedAt        DateTime?
+  
+  // Información de contacto
+  email             String
+  phone             String?
+  whatsapp          String?
+  
+  // Dirección
+  street            String?
+  neighborhood      String?
+  cityId            String
+  stateId           String
+  country           String        @default("México")
+  postalCode        String?
+  latitude          Float?
+  longitude         Float?
+  
+  // Información comercial básica
+  saleType          SaleType[]
+  saleMethod        SaleMethod[]
+  priceRange        PriceRange?
+  hasNationalShipping   Boolean   @default(false)
+  hasInternationalShipping Boolean @default(false)
+  
+  // Misión y valores
+  mission           String?
+  
+  // Metadatos
+  viewCount         Int           @default(0)
+  contactClicks     Int           @default(0)
+  whatsappClicks    Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // Relaciones de ubicación
+  city              City          @relation(fields: [cityId], references: [id])
+  state             State         @relation(fields: [stateId], references: [id])
+  
+  // Relaciones básicas
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categories        CompanyCategory[]
+  tags              CompanyTag[]
+  
+  @@map("companies")
+}
+
+enum CompanySize {
+  MICROPYME
+  PYME
+  MEDIANA
+  GRANDE
+}
+
+enum SaleType {
+  MAYOREO
+  MENUDEO
+}
+
+enum SaleMethod {
+  ONLINE
+  POS
+  DISTRIBUIDORES
+}
+
+enum PriceRange {
+  ECONOMICO
+  MEDIO
+  PREMIUM
+  LUJO
+}
+
+// ============================================
+// TABLAS RELACIONALES
+// ============================================
+
+// Tabla intermedia para empresas y categorías
+model CompanyCategory {
+  id            String      @id @default(cuid())
+  companyId     String
+  categoryId    String
+  subcategoryId String?
+  isPrimary     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  
+  // Relaciones
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  
+  @@unique([companyId, categoryId, subcategoryId])
+  @@map("company_categories")
+}
+
+// Tabla intermedia para empresas y etiquetas
+model CompanyTag {
+  id          String      @id @default(cuid())
+  companyId   String
+  tagId       String
+  createdAt   DateTime    @default(now())
+  
+  // Relaciones
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tag         Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([companyId, tagId])
+  @@map("company_tags")
+}
