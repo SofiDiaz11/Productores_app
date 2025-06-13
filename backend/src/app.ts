@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { testConnection } from './config/database';
 import { errorHandler, notFound, requestLogger } from './middleware/errorHandler';
 import indexRouter from './routes';
+import authRoutes from './routes/authRoutes'; 
 
 // Configurar variables de entorno PRIMERO
 dotenv.config();
@@ -48,16 +49,15 @@ app.use(express.urlencoded({
   limit: process.env.MAX_FILE_SIZE || '10mb' 
 }));
 
-// Logging en desarrollo usando el middleware mejorado
+// Logging middleware
 app.use(requestLogger);
 
-// Rutas principales
+// API Routes
+app.use('/api/auth', authRoutes);
 app.use('/', indexRouter);
 
-// Middleware de rutas no encontradas
+// Error handling middlewares
 app.use(notFound);
-
-// Middleware de manejo de errores (debe ir al final)
 app.use(errorHandler);
 
 export default app;
