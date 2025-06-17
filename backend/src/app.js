@@ -12,6 +12,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const database_1 = require("./config/database");
 const errorHandler_1 = require("./middleware/errorHandler");
 const routes_1 = __importDefault(require("./routes"));
+const authRoutes_1 = __importDefault(require("./routes/authRoutes"));
 // Configurar variables de entorno PRIMERO
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -49,10 +50,17 @@ app.use(express_1.default.urlencoded({
 }));
 // Logging en desarrollo usando el middleware mejorado
 app.use(errorHandler_1.requestLogger);
-// Rutas principales
+// Configurar rutas de autenticación ANTES de las rutas principales
+app.use('/api/auth', authRoutes_1.default);
+// Rutas principales después de auth
 app.use('/', routes_1.default);
-// Middleware de rutas no encontradas
+// Los middlewares de error siempre van AL FINAL
 app.use(errorHandler_1.notFound);
-// Middleware de manejo de errores (debe ir al final)
 app.use(errorHandler_1.errorHandler);
+// Log de rutas registradas en desarrollo
+if (process.env.NODE_ENV === 'development') {
+    console.log('🛣️  Rutas registradas:');
+    console.log('   POST /api/auth/register');
+    console.log('   POST /api/auth/login');
+}
 exports.default = app;
